@@ -3,6 +3,8 @@ package com.example.ui.screens
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
+import android.os.Environment
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -72,6 +74,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.StorageAccess
 import com.example.data.model.ThemeMode
 import com.example.data.repository.UpdateCheckResult
 import com.example.service.WhatsAppNotificationListener
@@ -113,21 +116,6 @@ fun SettingsScreen(
             true
         } catch (e: Exception) {
             false
-        }
-    }
-
-    val folderPickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocumentTree()
-    ) { uri: Uri? ->
-        if (uri != null) {
-            try {
-                val takeFlags: Int = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-                context.contentResolver.takePersistableUriPermission(uri, takeFlags)
-            } catch (e: Exception) {
-                // Ignore if flags can't be persisted
-            }
-            viewModel.setStatusFolderUri(uri.toString())
-            Toast.makeText(context, "Status folder access granted!", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -262,7 +250,7 @@ fun SettingsScreen(
                         fontSize = 12.sp
                     )
                     Text(
-                        text = "3. Transparent Android APIs: Statuses are read exclusively via standard Android MediaStore/Storage Access Framework, and message logs are recorded via official NotificationListenerService with user consent.",
+                        text = "3. Transparent Android APIs: Statuses are read through Android storage APIs with explicit user-granted access, and message logs are recorded via official NotificationListenerService with user consent.",
                         fontSize = 12.sp
                     )
                     Text(
@@ -316,14 +304,19 @@ fun SettingsScreen(
 
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
 
-            // WhatsApp Status Folder Access
+            // One-time WhatsApp status media access
+            val storageGranted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                Environment.isExternalStorageManager()
+            } else {
+                true
+            }
             SettingRow(
                 icon = Icons.Default.Folder,
                 title = "WhatsApp Status Media Access",
-                subtitle = if (!folderUri.isNullOrBlank()) "Folder Access Granted" else "Tap to choose Status folder",
-                statusBadge = if (!folderUri.isNullOrBlank()) "Granted" else "Select",
-                badgeColor = if (!folderUri.isNullOrBlank()) Color(0xFF008069) else Color(0xFF0288D1),
-                onClick = { folderPickerLauncher.launch(null) }
+                subtitle = if (storageGranted) "Automatic access enabled" else "Allow once to detect WhatsApp statuses automatically",
+                statusBadge = if (storageGranted) "Granted" else "Allow",
+                badgeColor = if (storageGranted) Color(0xFF008069) else Color(0xFFD97706),
+                onClick = { if (!storageGranted) StorageAccess.openSettings(context) }
             )
 
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))

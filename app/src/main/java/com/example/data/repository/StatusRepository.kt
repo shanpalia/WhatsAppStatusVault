@@ -45,7 +45,7 @@ class StatusRepository(
         val foundItems = mutableListOf<StatusMediaItem>()
         val savedUri = userUriString ?: settingsRepository.statusFolderUri.value
 
-        // 1. Try DocumentFile SAF URI if user selected folder
+        // 1. Legacy SAF URI fallback (kept only for existing installations).
         if (!savedUri.isNullOrBlank()) {
             try {
                 val treeUri = Uri.parse(savedUri)
@@ -56,7 +56,7 @@ class StatusRepository(
                         val name = doc.name ?: continue
                         if (name.startsWith(".nomedia") || name.startsWith(".")) continue
                         val isVideo = name.endsWith(".mp4", ignoreCase = true) || name.endsWith(".mkv", ignoreCase = true) || (doc.type?.startsWith("video/") == true)
-                        val isImage = name.endsWith(".jpg", ignoreCase = true) || name.endsWith(".jpeg", ignoreCase = true) || name.endsWith(".png", ignoreCase = true) || (doc.type?.startsWith("image/") == true)
+                        val isImage = name.endsWith(".jpg", ignoreCase = true) || name.endsWith(".jpeg", ignoreCase = true) || name.endsWith(".png", ignoreCase = true) || name.endsWith(".webp", ignoreCase = true) || name.endsWith(".webp", ignoreCase = true) || (doc.type?.startsWith("image/") == true)
                         
                         if (isImage || isVideo) {
                             val isSaved = savedMediaRepository.isMediaSaved(name)
@@ -82,7 +82,8 @@ class StatusRepository(
             }
         }
 
-        // 2. Scan standard known accessible direct filesystem paths
+        // 2. Scan WhatsApp status directories directly. With MANAGE_EXTERNAL_STORAGE
+        // enabled this does not require the user to pick .Statuses manually.
         val possiblePaths = listOf(
             // Modern Android (Android/media)
             Pair(File(Environment.getExternalStorageDirectory(), "Android/media/com.whatsapp/WhatsApp/Media/.Statuses"), "com.whatsapp"),
@@ -100,7 +101,7 @@ class StatusRepository(
                         if (file.isDirectory || file.name.startsWith(".nomedia") || file.name.startsWith(".")) continue
                         val name = file.name
                         val isVideo = name.endsWith(".mp4", ignoreCase = true) || name.endsWith(".mkv", ignoreCase = true)
-                        val isImage = name.endsWith(".jpg", ignoreCase = true) || name.endsWith(".jpeg", ignoreCase = true) || name.endsWith(".png", ignoreCase = true)
+                        val isImage = name.endsWith(".jpg", ignoreCase = true) || name.endsWith(".jpeg", ignoreCase = true) || name.endsWith(".png", ignoreCase = true) || name.endsWith(".webp", ignoreCase = true)
 
                         if (isImage || isVideo) {
                             val uri = Uri.fromFile(file)

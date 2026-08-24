@@ -1,11 +1,8 @@
 package com.example.ui.screens
 
-import android.app.Activity
-import android.content.Intent
-import android.net.Uri
 import android.widget.Toast
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
+import android.os.Build
+import android.os.Environment
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -64,6 +61,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.StorageAccess
 import com.example.data.model.StatusMediaItem
 import com.example.ui.components.FullscreenMediaViewer
 import com.example.ui.components.StatusMediaGridItem
@@ -83,28 +81,16 @@ fun StatusSaverScreen(
 ) {
     val statuses by viewModel.scannedStatuses.collectAsStateWithLifecycle()
     val isRefreshing by viewModel.isRefreshingStatuses.collectAsStateWithLifecycle()
-    val folderUri by viewModel.statusFolderUri.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val storageGranted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+        Environment.isExternalStorageManager()
+    } else {
+        true
+    }
 
     var selectedTabIndex by remember { mutableIntStateOf(0) }
     var selectedPackageFilter by remember { mutableStateOf("ALL") } // "ALL", "com.whatsapp", "com.whatsapp.w4b"
     var activeViewerItem by remember { mutableStateOf<StatusMediaItem?>(null) }
-
-    // SAF Document Folder Picker Launcher
-    val folderPickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocumentTree()
-    ) { uri: Uri? ->
-        if (uri != null) {
-            try {
-                val takeFlags: Int = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-                context.contentResolver.takePersistableUriPermission(uri, takeFlags)
-            } catch (e: Exception) {
-                // Ignore if flags can't be persisted
-            }
-            viewModel.setStatusFolderUri(uri.toString())
-            Toast.makeText(context, "Status folder access granted!", Toast.LENGTH_SHORT).show()
-        }
-    }
 
     if (activeViewerItem != null) {
         val item = activeViewerItem!!
@@ -153,23 +139,25 @@ fun StatusSaverScreen(
             }
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(
-                    onClick = { folderPickerLauncher.launch(null) },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = BentoMintContainer,
-                        contentColor = BentoMintText
-                    ),
-                    shape = RoundedCornerShape(12.dp),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                    modifier = Modifier.testTag("select_status_folder_btn")
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.FolderOpen,
-                        contentDescription = "Folder",
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(text = "Folder", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                if (!storageGranted) {
+                    Button(
+                        onClick = { StorageAccess.openSettings(context) },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = BentoMintContainer,
+                            contentColor = BentoMintText
+                        ),
+                        shape = RoundedCornerShape(12.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                        modifier = Modifier.testTag("grant_storage_access_btn")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.FolderOpen,
+                            contentDescription = "Storage access",
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(text = "Allow Access", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
                 }
 
                 IconButton(
@@ -193,6 +181,32 @@ fun StatusSaverScreen(
                             tint = BentoPrimary,
                             modifier = Modifier.size(20.dp)
                         )
+                    }
+                }
+            }
+        }
+
+        if (!storageGranted) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                colors = CardDefaults.cardColors(containerColor = BentoMintContainer),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("Storage access required", fontWeight = FontWeight.Bold, color = BentoMintText)
+                    Text(
+                        "Allow access once. WhatsApp and WhatsApp Business .Statuses will then be detected automatically without selecting a folder.",
+                        fontSize = 12.sp,
+                        color = BentoMintText
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Button(
+                        onClick = { StorageAccess.openSettings(context) },
+                        colors = ButtonDefaults.buttonColors(containerColor = BentoPrimary)
+                    ) {
+                        Text("Allow Storage Access")
                     }
                 }
             }
@@ -297,13 +311,13 @@ fun StatusSaverScreen(
                             color = Color(0xFF00201C)
                         )
                         Text(
-                            text = "Select Android/media/com.whatsapp/WhatsApp/Media/.Statuses",
+                            text = "Allow once to automatically detect WhatsApp and WhatsApp Business statuses",
                             fontSize = 11.sp,
                             color = Color(0xFF2E6356)
                         )
                     }
                     Button(
-                        onClick = { folderPickerLauncher.launch(null) },
+                        onClick = { StorageAccess.openSettings(context) },
                         colors = ButtonDefaults.buttonColors(containerColor = BentoPrimary),
                         shape = RoundedCornerShape(12.dp),
                         contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)

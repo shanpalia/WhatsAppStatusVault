@@ -5,10 +5,12 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Handler
+import android.os.Environment
 import android.os.Looper
 import androidx.core.content.ContextCompat
 import com.example.service.WhatsAppNotificationListener
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
@@ -81,6 +83,8 @@ enum class ScreenRoute {
 class MainActivity : ComponentActivity() {
 
     private var notificationSettingsOpened = false
+    private var allFilesSettingsOpened = false
+    private var waitingForAllFilesReturn = false
 
     private fun requestRequiredPermissionsAutomatically() {
         val permissions = mutableListOf<String>()
@@ -108,8 +112,20 @@ class MainActivity : ComponentActivity() {
         if (permissions.isNotEmpty()) {
             requestPermissions(permissions.toTypedArray(), REQUEST_RUNTIME_PERMISSIONS)
         } else {
-            openNotificationAccessIfNeeded()
+            continuePermissionSetup()
         }
+    }
+
+    private fun continuePermissionSetup() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && !Environment.isExternalStorageManager()) {
+            if (!allFilesSettingsOpened) {
+                allFilesSettingsOpened = true
+                waitingForAllFilesReturn = true
+                StorageAccess.openSettings(this)
+            }
+            return
+        }
+        openNotificationAccessIfNeeded()
     }
 
     private fun openNotificationAccessIfNeeded() {
@@ -118,7 +134,18 @@ class MainActivity : ComponentActivity() {
             notificationSettingsOpened = true
             Handler(Looper.getMainLooper()).postDelayed({
                 WhatsAppNotificationListener.openNotificationAccessSettings(this)
-            }, 700)
+            }, 500)
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (waitingForAllFilesReturn) {
+            waitingForAllFilesReturn = false
+            Handler(Looper.getMainLooper()).postDelayed({
+                continuePermissionSetup()
+                viewModel.refreshStatuses()
+            }, 350)
         }
     }
 
@@ -129,7 +156,7 @@ class MainActivity : ComponentActivity() {
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == REQUEST_RUNTIME_PERMISSIONS) {
-            openNotificationAccessIfNeeded()
+            continuePermissionSetup()
         }
     }
 
@@ -179,6 +206,17 @@ class MainActivity : ComponentActivity() {
                         }
                     )
                 } else {
+                    // Android system back navigation:
+                    // - child screen -> return to Home
+                    // - Home -> exit the activity
+                    BackHandler(enabled = currentRoute != ScreenRoute.HOME) {
+                        currentRoute = ScreenRoute.HOME
+                    }
+
+                    BackHandler(enabled = currentRoute == ScreenRoute.HOME) {
+                        finish()
+                    }
+
                     Scaffold(
                         modifier = Modifier.fillMaxSize(),
                         topBar = {
