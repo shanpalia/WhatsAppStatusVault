@@ -1,16 +1,7 @@
-# GitHub upload checklist
+# Upload to GitHub
 
-Upload the contents of this project root to the repository root.
+Upload the CONTENTS of this folder to the repository root, not the ZIP itself.
 
-The repository root should contain:
-- app/
-- gradle/
-- build.gradle.kts
-- settings.gradle.kts
-- gradle.properties
-- gradlew (if present)
-- gradlew.bat (if present)
-- codemagic.yaml (to be added after GitHub upload/configuration)
+The root should contain `app/`, `gradle/`, `build.gradle.kts`, `settings.gradle.kts`, and `gradlew`/`gradlew.bat` if present.
 
-Do not upload the ZIP itself as the project root.
-Do not commit signing keys or `.env` secrets.
+Do not upload signing keys or `.env` files.

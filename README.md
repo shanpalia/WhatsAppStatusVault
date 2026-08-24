@@ -1,24 +1,10 @@
 # WhatsApp Status Vault
 
-Android app by **ShanPalia** for locally accessible WhatsApp status media, notification-based message history, WhatsApp Direct, and PDF reports.
+**WhatsApp Status Vault**  
+Developed by **ShanPalia**
 
-## Important
+Application ID: `com.shanpalia.whatsappstatusvault`
 
-- No fake/demo status, contacts, messages, or counters.
-- Status media is accessed only through Android-supported local storage/media access.
-- Notification history requires the user to explicitly enable Notification Access.
-- The app does not access WhatsApp private databases or bypass Android security.
-- Deleted-message history can only preserve content that was actually available in a notification before it was removed.
+This project is prepared for GitHub upload. It uses real device/notification data only and does not generate fake statuses, messages, contacts, or counters.
 
-## Project
-
-Native Kotlin + Jetpack Compose Android project.
-
-Package:
-`com.shanpalia.whatsappstatusvault`
-
-Display name:
-`WhatsApp Status Vault`
-
-Developer:
-`ShanPalia`
+Notification history requires explicit Android Notification Access. The app does not access WhatsApp's private database or bypass Android security.
