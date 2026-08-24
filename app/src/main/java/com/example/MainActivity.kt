@@ -2,17 +2,13 @@ package com.example
 
 import android.os.Bundle
 import android.Manifest
-import android.content.Intent
 import android.content.pm.PackageManager
-import android.net.Uri
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import androidx.core.content.ContextCompat
 import com.example.service.WhatsAppNotificationListener
 import androidx.activity.ComponentActivity
-import androidx.activity.result.ActivityResultLauncher
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
@@ -85,23 +81,8 @@ enum class ScreenRoute {
 class MainActivity : ComponentActivity() {
 
     private var notificationSettingsOpened = false
-    private var permissionsFlowStarted = false
-    private var statusFolderPickerOpened = false
-
-    private val statusFolderPicker: ActivityResultLauncher<Uri?> = registerForActivityResult(
-        ActivityResultContracts.OpenDocumentTree()
-    ) { uri ->
-        if (uri != null) {
-            try {
-                val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-                contentResolver.takePersistableUriPermission(uri, flags)
-            } catch (_: Exception) { }
-            (application as StatusVaultApplication).settingsRepository.setStatusFolderUri(uri.toString())
-        }
-    }
 
     private fun requestRequiredPermissionsAutomatically() {
-        permissionsFlowStarted = true
         val permissions = mutableListOf<String>()
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -138,27 +119,6 @@ class MainActivity : ComponentActivity() {
             Handler(Looper.getMainLooper()).postDelayed({
                 WhatsAppNotificationListener.openNotificationAccessSettings(this)
             }, 700)
-        }
-    }
-
-    private fun openStatusFolderPickerIfNeeded() {
-        if (statusFolderPickerOpened) return
-        if (!WhatsAppNotificationListener.isNotificationAccessGranted(this)) return
-        val savedUri = (application as StatusVaultApplication).settingsRepository.statusFolderUri.value
-        if (savedUri.isNullOrBlank()) {
-            statusFolderPickerOpened = true
-            Handler(Looper.getMainLooper()).postDelayed({
-                statusFolderPicker.launch(null)
-            }, 500)
-        }
-    }
-
-    override fun onResume() {
-        super.onResume()
-        if (permissionsFlowStarted) {
-            Handler(Looper.getMainLooper()).postDelayed({
-                openStatusFolderPickerIfNeeded()
-            }, 300)
         }
     }
 
@@ -201,14 +161,6 @@ class MainActivity : ComponentActivity() {
             val isAppUnlocked by viewModel.isAppUnlocked.collectAsStateWithLifecycle()
 
             var currentRoute by remember { mutableStateOf(ScreenRoute.SPLASH) }
-
-            androidx.activity.compose.BackHandler(enabled = currentRoute != ScreenRoute.SPLASH) {
-                if (currentRoute == ScreenRoute.HOME) {
-                    finish()
-                } else {
-                    currentRoute = ScreenRoute.HOME
-                }
-            }
 
             StatusVaultTheme(darkTheme = isDarkTheme) {
                 if (currentRoute == ScreenRoute.SPLASH) {

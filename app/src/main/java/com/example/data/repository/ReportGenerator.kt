@@ -28,8 +28,7 @@ class ReportGenerator(private val context: Context) {
         stats: DashboardStats,
         statuses: List<StatusMediaItem>,
         savedMedia: List<SavedMediaItem>,
-        notifications: List<NotificationItem>,
-        selectedSenders: Set<String> = emptySet()
+        notifications: List<NotificationItem>
     ): Result<File> = withContext(Dispatchers.IO) {
         val pdfDocument = PdfDocument()
         val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
@@ -90,7 +89,7 @@ class ReportGenerator(private val context: Context) {
             canvas.drawText("• Saved Videos in Vault: ${stats.savedVideos}", col1, statY, paint)
             canvas.drawText("• Captured Message Notifications: ${stats.capturedNotifications}", col2, statY, paint)
             statY += 24f
-            canvas.drawText("• Deleted-message evidence: ${notifications.count { it.isRemoved }}", col1, statY, paint)
+            canvas.drawText("• Notification Removed / Deleted: ${stats.removedNotifications}", col1, statY, paint)
 
             yPos += 135f
 
@@ -185,10 +184,6 @@ class ReportGenerator(private val context: Context) {
                 }
             }
 
-            paint.color = Color.parseColor("#667781")
-            paint.textSize = 8f
-            canvas.drawText("* Deleted = notification removal evidence; Android cannot verify WhatsApp private deletion state.", 36f, (pageHeight - 34).toFloat(), paint)
-
             // Footer
             paint.color = Color.parseColor("#888888")
             paint.textSize = 9f
@@ -213,7 +208,7 @@ class ReportGenerator(private val context: Context) {
             yPos = 90f
             paint.color = Color.parseColor("#008069")
             paint.textSize = 14f
-            canvas.drawText("4. Selected Chat Message Records (${notifications.size} total)", 36f, yPos, paint)
+            canvas.drawText("4. Real Captured Notification Records (${notifications.size} total)", 36f, yPos, paint)
 
             yPos += 18f
             paint.color = Color.parseColor("#E0E6E3")
@@ -224,7 +219,7 @@ class ReportGenerator(private val context: Context) {
             canvas.drawText("Timestamp", 44f, yPos + 15f, paint)
             canvas.drawText("Sender / Group", 145f, yPos + 15f, paint)
             canvas.drawText("Message Snippet", 280f, yPos + 15f, paint)
-            canvas.drawText("Evidence", 490f, yPos + 15f, paint)
+            canvas.drawText("Status", 490f, yPos + 15f, paint)
 
             yPos += 26f
             paint.isFakeBoldText = false
@@ -253,11 +248,11 @@ class ReportGenerator(private val context: Context) {
                     if (notif.isRemoved) {
                         paint.color = Color.parseColor("#D32F2F")
                         paint.isFakeBoldText = true
-                        canvas.drawText("Deleted*", 490f, yPos + 12f, paint)
+                        canvas.drawText("Removed", 490f, yPos + 12f, paint)
                     } else {
                         paint.color = Color.parseColor("#008069")
                         paint.isFakeBoldText = false
-                        canvas.drawText("Captured", 490f, yPos + 12f, paint)
+                        canvas.drawText("Active", 490f, yPos + 12f, paint)
                     }
 
                     paint.color = Color.parseColor("#EEEEEE")

@@ -4,8 +4,6 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Environment
-import android.os.Build
-import android.provider.MediaStore
 import androidx.core.content.FileProvider
 import androidx.documentfile.provider.DocumentFile
 import com.example.data.db.DetectedStatusEntity
@@ -13,7 +11,7 @@ import com.example.data.db.StatusDao
 import com.example.data.model.StatusMediaItem
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.withContext
 import java.io.File
 
@@ -25,7 +23,7 @@ class StatusRepository(
 ) {
     val detectedStatusesCount: Flow<Int> = statusDao.getDetectedCount()
 
-    val detectedStatuses: Flow<List<StatusMediaItem>> = statusDao.getAllDetected().map { list ->
+    val detectedStatuses: Flow<List<StatusMediaItem>> = statusDao.getAllDetected().mapLatest { list ->
         list.map { entity ->
             val isSaved = savedMediaRepository.isMediaSaved(entity.fileName)
             StatusMediaItem(
@@ -84,60 +82,7 @@ class StatusRepository(
             }
         }
 
-        // 2. Scan MediaStore for real WhatsApp status media. This is the preferred
-        // path on modern Android because Android/media is scoped storage protected.
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            fun scanMediaStore(uri: Uri, mimePrefix: String) {
-                val projection = arrayOf(
-                    MediaStore.MediaColumns._ID,
-                    MediaStore.MediaColumns.DISPLAY_NAME,
-                    MediaStore.MediaColumns.SIZE,
-                    MediaStore.MediaColumns.DATE_MODIFIED,
-                    MediaStore.MediaColumns.RELATIVE_PATH,
-                    MediaStore.MediaColumns.MIME_TYPE
-                )
-                val selection = "${MediaStore.MediaColumns.RELATIVE_PATH} LIKE ?"
-                val selectionArgs = arrayOf("%/.Statuses/%")
-                try {
-                    context.contentResolver.query(uri, projection, selection, selectionArgs, "${MediaStore.MediaColumns.DATE_MODIFIED} DESC")?.use { cursor ->
-                        val idCol = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns._ID)
-                        val nameCol = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.DISPLAY_NAME)
-                        val sizeCol = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.SIZE)
-                        val dateCol = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.DATE_MODIFIED)
-                        val relCol = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.RELATIVE_PATH)
-                        while (cursor.moveToNext()) {
-                            val name = cursor.getString(nameCol) ?: continue
-                            if (name.startsWith(".")) continue
-                            val relative = cursor.getString(relCol) ?: ""
-                            val isBusiness = relative.contains("com.whatsapp.w4b", ignoreCase = true)
-                            val pkg = if (isBusiness) "com.whatsapp.w4b" else "com.whatsapp"
-                            val id = cursor.getLong(idCol)
-                            val itemUri = Uri.withAppendedPath(uri, id.toString())
-                            val isVideo = mimePrefix == "video" || name.endsWith(".mp4", true) || name.endsWith(".mkv", true)
-                            if (foundItems.none { it.uriString == itemUri.toString() }) {
-                                foundItems += StatusMediaItem(
-                                    id = itemUri.toString(),
-                                    uri = itemUri,
-                                    uriString = itemUri.toString(),
-                                    path = itemUri.toString(),
-                                    name = name,
-                                    isVideo = isVideo,
-                                    size = cursor.getLong(sizeCol),
-                                    dateModified = cursor.getLong(dateCol) * 1000L,
-                                    packageSource = pkg,
-                                    isSaved = savedMediaRepository.isMediaSaved(name)
-                                )
-                            }
-                        }
-                    }
-                } catch (_: SecurityException) { }
-                catch (_: Exception) { }
-            }
-            scanMediaStore(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, "image")
-            scanMediaStore(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, "video")
-        }
-
-        // 3. Scan standard known accessible direct filesystem paths
+        // 2. Scan standard known accessible direct filesystem paths
         val possiblePaths = listOf(
             // Modern Android (Android/media)
             Pair(File(Environment.getExternalStorageDirectory(), "Android/media/com.whatsapp/WhatsApp/Media/.Statuses"), "com.whatsapp"),
