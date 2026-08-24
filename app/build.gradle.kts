@@ -5,12 +5,10 @@ plugins {
   alias(libs.plugins.kotlin.compose)
   alias(libs.plugins.google.devtools.ksp)
   alias(libs.plugins.roborazzi)
-  alias(libs.plugins.secrets)
-  alias(libs.plugins.google.services)
 }
 
 android {
-  namespace = "com.shanpalia.whatsappstatusvault"
+  namespace = "com.example"
   compileSdk { version = release(36) { minorApiLevel = 1 } }
 
   defaultConfig {
@@ -102,7 +100,6 @@ dependencies {
   implementation("androidx.documentfile:documentfile:1.0.1")
   implementation("io.coil-kt:coil-video:2.7.0")
   implementation(libs.converter.moshi)
-  implementation(libs.firebase.ai)
   // Uncomment to use Firestore:
   // implementation(libs.firebase.firestore)
 
@@ -112,7 +109,6 @@ dependencies {
   // implementation(libs.androidx.credentials)
   // implementation(libs.androidx.credentials.play.services)
   // implementation(libs.googleid)
-  implementation(libs.firebase.appcheck.recaptcha)
   implementation(libs.kotlinx.coroutines.android)
   implementation(libs.kotlinx.coroutines.core)
   implementation(libs.logging.interceptor)
