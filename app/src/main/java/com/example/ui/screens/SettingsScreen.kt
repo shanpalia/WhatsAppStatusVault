@@ -1,5 +1,7 @@
 package com.example.ui.screens
 
+import com.example.BuildConfig
+
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -460,10 +462,10 @@ fun SettingsScreen(
                 ) {
                     Column {
                         Text("Check for Updates", fontSize = 14.sp, fontWeight = FontWeight.Medium)
-                        Text("Current Version: 1.0 (Build 1)", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("Current Version: ${BuildConfig.VERSION_NAME} (Build ${BuildConfig.VERSION_CODE})", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     Button(
-                        onClick = { viewModel.checkForUpdates(currentVersionCode = 1, currentVersionName = "1.0") },
+                        onClick = { viewModel.checkForUpdates(currentVersionCode = BuildConfig.VERSION_CODE, currentVersionName = BuildConfig.VERSION_NAME) },
                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
                         shape = RoundedCornerShape(8.dp),
                         contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
@@ -556,7 +558,7 @@ fun SettingsScreen(
                                 Text(result.message, fontSize = 10.sp, color = Color(0xFFB71C1C))
                             }
                             TextButton(onClick = {
-                                viewModel.checkForUpdates(currentVersionCode = 1, currentVersionName = "1.0")
+                                viewModel.checkForUpdates(currentVersionCode = BuildConfig.VERSION_CODE, currentVersionName = BuildConfig.VERSION_NAME)
                             }) {
                                 Text("Retry", fontSize = 11.sp, color = Color(0xFFD32F2F))
                             }

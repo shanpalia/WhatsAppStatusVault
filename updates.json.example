@@ -1,0 +1,13 @@
+{
+  "apps": [
+    {
+      "package": "com.shanpalia.whatsappstatusvault",
+      "name": "WhatsApp Status Vault",
+      "versionCode": 1,
+      "versionName": "1.0",
+      "apkUrl": "https://shanpalia.github.io/WebsitePaliaAPK_V.2/WhatsApp-Status-Vault.apk",
+      "releaseNotes": ["Initial release"],
+      "forceUpdate": false
+    }
+  ]
+}

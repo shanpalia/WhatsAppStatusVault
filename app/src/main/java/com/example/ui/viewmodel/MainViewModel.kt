@@ -272,15 +272,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     // --- Reports ---
-    fun generatePdfReport(onComplete: (File?) -> Unit) {
+    fun generatePdfReport(selectedSenders: Set<String>, onComplete: (File?) -> Unit) {
         viewModelScope.launch {
             _isGeneratingReport.value = true
             val currentStats = dashboardStats.value
             val statuses = _scannedStatuses.value
             val saved = savedMediaRepo.getAllSavedList()
-            val notifs = notificationRepo.getAllNotificationsList()
+            val allNotifs = notificationRepo.getAllNotificationsList()
+            val notifs = if (selectedSenders.isEmpty()) {
+                emptyList()
+            } else {
+                allNotifs.filter { selectedSenders.contains(it.sender) }
+            }
 
-            val result = reportGen.generatePdfReport(currentStats, statuses, saved, notifs)
+            val result = reportGen.generatePdfReport(currentStats, statuses, saved, notifs, selectedSenders)
             _isGeneratingReport.value = false
 
             if (result.isSuccess) {

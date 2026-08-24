@@ -19,9 +19,9 @@ sealed class UpdateCheckResult {
 
 class UpdateRepository {
     private val updateUrls = listOf(
-        "https://shanpalia.github.io/WebsitePaliaAPK_V.2/version.json",
-        "https://raw.githubusercontent.com/shanpalia/WebsitePaliaAPK_V.2/main/version.json",
-        "https://raw.githubusercontent.com/shanpalia/WebsitePaliaAPK_V.2/master/version.json"
+        "https://shanpalia.github.io/WebsitePaliaAPK_V.2/updates.json",
+        "https://raw.githubusercontent.com/shanpalia/WebsitePaliaAPK_V.2/main/updates.json",
+        "https://raw.githubusercontent.com/shanpalia/WebsitePaliaAPK_V.2/master/updates.json"
     )
 
     suspend fun checkForUpdates(
@@ -54,11 +54,25 @@ class UpdateRepository {
                 }
 
                 val response = connection.inputStream.bufferedReader().use { it.readText() }
-                val json = JSONObject(response)
+                val rootJson = JSONObject(response)
+                val packageName = "com.shanpalia.whatsappstatusvault"
+                val json = if (rootJson.has("apps")) {
+                    val apps = rootJson.optJSONArray("apps")
+                    var match: JSONObject? = null
+                    if (apps != null) {
+                        for (i in 0 until apps.length()) {
+                            val candidate = apps.optJSONObject(i) ?: continue
+                            if (candidate.optString("package") == packageName) {
+                                match = candidate
+                                break
+                            }
+                        }
+                    }
+                    match
+                } else rootJson
 
-                // Missing/invalid versionCode must never be treated as "up to date".
-                if (!json.has("versionCode")) {
-                    lastError = "version.json is missing versionCode"
+                if (json == null || !json.has("versionCode")) {
+                    lastError = "No update record found for this app"
                     continue
                 }
 

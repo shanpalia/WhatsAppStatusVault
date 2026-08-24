@@ -91,7 +91,10 @@ class WhatsAppNotificationListener : NotificationListenerService() {
         }
 
         // Skip internal/empty or service notifications like "WhatsApp Web is active" or backup notifications.
-        if (sender.isBlank() && messageText.isBlank()) return
+        // Never create fake message content. Notifications that expose only counts/media are ignored.
+        if (sender.isBlank() || messageText.isBlank()) return
+        if (messageText.equals("3 new messages", ignoreCase = true) ||
+            messageText.matches(Regex("\\d+ new messages", RegexOption.IGNORE_CASE))) return
         if (sender.equals("WhatsApp", ignoreCase = true) && messageText.contains("Web", ignoreCase = true)) return
         if (messageText.contains("Checking for new messages", ignoreCase = true)) return
         if (messageText.contains("Backup in progress", ignoreCase = true)) return
@@ -102,7 +105,7 @@ class WhatsAppNotificationListener : NotificationListenerService() {
             notificationKey = sbn.key ?: "${packageName}_${sbn.id}_${sbn.postTime}",
             packageSource = packageName,
             sender = if (sender.isNotBlank()) sender else "WhatsApp Contact",
-            messageText = if (messageText.isNotBlank()) messageText else "Original message was not available in the notification.",
+            messageText = messageText,
             timestamp = if (sbn.postTime > 0) sbn.postTime else System.currentTimeMillis(),
             isRemoved = false,
             isGroup = isGroup,

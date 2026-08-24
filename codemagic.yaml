@@ -26,7 +26,9 @@ workflows:
         script: |
           set -e
           mkdir -p "$HOME/gradle"
-          curl -L --fail --retry 3             -o "$HOME/gradle/gradle.zip"             "https://services.gradle.org/distributions/gradle-9.3.1-bin.zip"
+          curl -L --fail --retry 3 \
+            -o "$HOME/gradle/gradle.zip" \
+            "https://services.gradle.org/distributions/gradle-9.3.1-bin.zip"
           unzip -q -o "$HOME/gradle/gradle.zip" -d "$HOME/gradle"
           export GRADLE_HOME="$HOME/gradle/gradle-9.3.1"
           export PATH="$GRADLE_HOME/bin:$PATH"
