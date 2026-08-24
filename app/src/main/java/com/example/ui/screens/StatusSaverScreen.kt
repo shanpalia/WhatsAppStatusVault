@@ -275,7 +275,7 @@ fun StatusSaverScreen(
         }
 
         // Folder Access Guide Notice Banner (if statuses empty and no folder selected)
-        if (statuses.isEmpty() && folderUri.isNullOrBlank()) {
+        if (statuses.isEmpty() && !storageGranted) {
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
