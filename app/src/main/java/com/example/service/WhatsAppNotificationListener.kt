@@ -31,16 +31,67 @@ class WhatsAppNotificationListener : NotificationListenerService() {
         val notification = sbn.notification ?: return
         val extras = notification.extras ?: return
 
-        // Extract sender and message text
+        // Extract the actual notification content. WhatsApp often uses
+        // Notification.MessagingStyle, where EXTRA_TEXT only contains a
+        // summary such as "3 new messages". Prefer the individual messages.
         val titleCharSequence = extras.getCharSequence(Notification.EXTRA_TITLE)
+        val conversationTitle = extras.getCharSequence(Notification.EXTRA_CONVERSATION_TITLE)
         val textCharSequence = extras.getCharSequence(Notification.EXTRA_TEXT)
         val bigTextCharSequence = extras.getCharSequence(Notification.EXTRA_BIG_TEXT)
         val subTextCharSequence = extras.getCharSequence(Notification.EXTRA_SUB_TEXT)
 
-        val sender = titleCharSequence?.toString()?.trim() ?: ""
-        val messageText = (bigTextCharSequence ?: textCharSequence ?: subTextCharSequence)?.toString()?.trim() ?: ""
+        val messagingLines = mutableListOf<String>()
 
-        // Skip internal/empty or service notifications like "WhatsApp Web is active" or backup notifications
+        try {
+            val messageBundles = extras.getParcelableArray(Notification.EXTRA_MESSAGES)
+            if (messageBundles != null) {
+                val messages = Notification.MessagingStyle.Message.getMessagesFromBundleArray(messageBundles)
+                for (message in messages) {
+                    val text = message.text?.toString()?.trim().orEmpty()
+                    if (text.isNotBlank()) {
+                        val author = message.person?.name?.toString()?.trim().orEmpty()
+                        messagingLines += if (author.isNotBlank()) "$author: $text" else text
+                    }
+                }
+            }
+        } catch (_: Throwable) {
+            // Some Android/WhatsApp notification formats do not expose MessagingStyle.
+        }
+
+        // Some WhatsApp builds expose individual lines instead of EXTRA_MESSAGES.
+        if (messagingLines.isEmpty()) {
+            try {
+                val lines = extras.getCharSequenceArray(Notification.EXTRA_TEXT_LINES)
+                if (lines != null) {
+                    lines.mapNotNull { it?.toString()?.trim() }
+                        .filter { it.isNotBlank() }
+                        .distinct()
+                        .forEach { messagingLines += it }
+                }
+            } catch (_: Throwable) {
+                // Ignore unsupported notification formats.
+            }
+        }
+
+        val sender = (
+            conversationTitle?.toString()?.trim()
+                ?: titleCharSequence?.toString()?.trim()
+                ?: ""
+            )
+
+        val fallbackText = (
+            bigTextCharSequence
+                ?: textCharSequence
+                ?: subTextCharSequence
+            )?.toString()?.trim().orEmpty()
+
+        val messageText = if (messagingLines.isNotEmpty()) {
+            messagingLines.joinToString("\n")
+        } else {
+            fallbackText
+        }
+
+        // Skip internal/empty or service notifications like "WhatsApp Web is active" or backup notifications.
         if (sender.isBlank() && messageText.isBlank()) return
         if (sender.equals("WhatsApp", ignoreCase = true) && messageText.contains("Web", ignoreCase = true)) return
         if (messageText.contains("Checking for new messages", ignoreCase = true)) return

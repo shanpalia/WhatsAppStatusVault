@@ -20,3 +20,16 @@ View your app in AI Studio: https://ai.studio/apps/04ca4a2f-7bbb-4a8a-9284-26504
 5. Remove this line from the app's `build.gradle.kts` file: `signingConfig = signingConfigs.getByName("debugConfig")`
 6. Run the app on an emulator or physical device
 7. If you have already published your app in AI Studio, please [request upload key reset](https://support.google.com/googleplay/android-developer/answer/9842756#zippy=%2Crequest-an-upload-key-reset) in Google Play Console.
+
+
+## Update server
+
+Put `version.json` in the root of the `WebsitePaliaAPK_V.2` GitHub Pages repository.
+The app checks the website first and then the GitHub raw file as fallback.
+
+Increase `versionCode` for every release. If the server version is greater than
+the installed version, the app shows Update Available. If the server responds
+successfully with the same/lower version, it shows You're up to date. Network/
+404 errors are never treated as up to date.
+
+See `version.json.example`.

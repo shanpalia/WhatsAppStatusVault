@@ -18,67 +18,91 @@ sealed class UpdateCheckResult {
 }
 
 class UpdateRepository {
-    private val updateUrl = "https://shanpalia.github.io/WebsitePaliaAPK_V.2/version.json"
+    private val updateUrls = listOf(
+        "https://shanpalia.github.io/WebsitePaliaAPK_V.2/version.json",
+        "https://raw.githubusercontent.com/shanpalia/WebsitePaliaAPK_V.2/main/version.json",
+        "https://raw.githubusercontent.com/shanpalia/WebsitePaliaAPK_V.2/master/version.json"
+    )
 
-    suspend fun checkForUpdates(currentVersionCode: Int, currentVersionName: String): UpdateCheckResult = withContext(Dispatchers.IO) {
-        var connection: HttpURLConnection? = null
-        try {
-            // Cache busting query parameter
-            val cacheBustedUrl = "$updateUrl?t=${System.currentTimeMillis()}"
-            val url = URL(cacheBustedUrl)
-            connection = url.openConnection() as HttpURLConnection
-            connection.apply {
-                requestMethod = "GET"
-                connectTimeout = 8000
-                readTimeout = 8000
-                useCaches = false
-                setRequestProperty("Cache-Control", "no-cache")
-                setRequestProperty("Accept", "application/json")
-            }
+    suspend fun checkForUpdates(
+        currentVersionCode: Int,
+        currentVersionName: String
+    ): UpdateCheckResult = withContext(Dispatchers.IO) {
+        var lastError = "Unable to connect to update server"
 
-            val responseCode = connection.responseCode
-            if (responseCode != HttpURLConnection.HTTP_OK) {
-                return@withContext UpdateCheckResult.Error("Server returned HTTP $responseCode (${connection.responseMessage})")
-            }
-
-            val reader = BufferedReader(InputStreamReader(connection.inputStream))
-            val response = StringBuilder()
-            var line: String?
-            while (reader.readLine().also { line = it } != null) {
-                response.append(line)
-            }
-            reader.close()
-
-            val json = JSONObject(response.toString())
-            val serverVersionCode = json.optInt("versionCode", 1)
-            val serverVersionName = json.optString("versionName", "1.0")
-            val apkUrl = json.optString("apkUrl", "")
-            val forceUpdate = json.optBoolean("forceUpdate", false)
-            val notesArray = json.optJSONArray("releaseNotes")
-            val notesList = mutableListOf<String>()
-            if (notesArray != null) {
-                for (i in 0 until notesArray.length()) {
-                    notesList.add(notesArray.getString(i))
+        for (baseUrl in updateUrls) {
+            var connection: HttpURLConnection? = null
+            try {
+                val cacheBustedUrl = "$baseUrl?t=${System.currentTimeMillis()}"
+                connection = (URL(cacheBustedUrl).openConnection() as HttpURLConnection).apply {
+                    requestMethod = "GET"
+                    connectTimeout = 8000
+                    readTimeout = 8000
+                    useCaches = false
+                    instanceFollowRedirects = true
+                    setRequestProperty("Cache-Control", "no-cache, no-store")
+                    setRequestProperty("Pragma", "no-cache")
+                    setRequestProperty("Accept", "application/json")
+                    setRequestProperty("User-Agent", "WhatsAppStatusVault-Updater")
                 }
-            }
 
-            val updateInfo = AppUpdateInfo(
-                versionCode = serverVersionCode,
-                versionName = serverVersionName,
-                apkUrl = apkUrl,
-                releaseNotes = notesList,
-                forceUpdate = forceUpdate
-            )
+                val responseCode = connection.responseCode
 
-            if (serverVersionCode > currentVersionCode) {
-                UpdateCheckResult.UpdateAvailable(updateInfo)
-            } else {
-                UpdateCheckResult.UpToDate(currentVersionName)
+                if (responseCode != HttpURLConnection.HTTP_OK) {
+                    lastError = "HTTP $responseCode"
+                    continue
+                }
+
+                val response = connection.inputStream.bufferedReader().use { it.readText() }
+                val json = JSONObject(response)
+
+                // Missing/invalid versionCode must never be treated as "up to date".
+                if (!json.has("versionCode")) {
+                    lastError = "version.json is missing versionCode"
+                    continue
+                }
+
+                val serverVersionCode = json.getInt("versionCode")
+                val serverVersionName = json.optString("versionName", "")
+                val apkUrl = json.optString("apkUrl", "")
+                val forceUpdate = json.optBoolean("forceUpdate", false)
+
+                if (serverVersionCode > currentVersionCode) {
+                    val notesArray = json.optJSONArray("releaseNotes")
+                    val notesList = mutableListOf<String>()
+                    if (notesArray != null) {
+                        for (i in 0 until notesArray.length()) {
+                            notesList += notesArray.optString(i)
+                        }
+                    }
+
+                    if (apkUrl.isBlank()) {
+                        return@withContext UpdateCheckResult.Error(
+                            "A new version is available, but apkUrl is missing."
+                        )
+                    }
+
+                    return@withContext UpdateCheckResult.UpdateAvailable(
+                        AppUpdateInfo(
+                            versionCode = serverVersionCode,
+                            versionName = serverVersionName,
+                            apkUrl = apkUrl,
+                            releaseNotes = notesList,
+                            forceUpdate = forceUpdate
+                        )
+                    )
+                }
+
+                // A valid server response with same/lower version means up to date.
+                return@withContext UpdateCheckResult.UpToDate(currentVersionName)
+            } catch (e: Exception) {
+                lastError = e.localizedMessage ?: "Update server request failed"
+            } finally {
+                connection?.disconnect()
             }
-        } catch (e: Exception) {
-            UpdateCheckResult.Error(e.localizedMessage ?: "Unable to connect to update server")
-        } finally {
-            connection?.disconnect()
         }
+
+        // Do not incorrectly show "up to date" when all endpoints failed.
+        UpdateCheckResult.Error("Unable to check for updates ($lastError)")
     }
 }
