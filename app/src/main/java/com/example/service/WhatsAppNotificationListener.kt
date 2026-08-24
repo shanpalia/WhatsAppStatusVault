@@ -49,8 +49,7 @@ class WhatsAppNotificationListener : NotificationListenerService() {
                 for (message in messages) {
                     val text = message.text?.toString()?.trim().orEmpty()
                     if (text.isNotBlank()) {
-                        val author = message.getPerson()?.name?.toString()?.trim().orEmpty()
-                        messagingLines += if (author.isNotBlank()) "$author: $text" else text
+                        messagingLines += text
                     }
                 }
             }
