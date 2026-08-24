@@ -1,6 +1,13 @@
 package com.example
 
 import android.os.Bundle
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import android.os.Handler
+import android.os.Looper
+import androidx.core.content.ContextCompat
+import com.example.service.WhatsAppNotificationListener
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -73,12 +80,74 @@ enum class ScreenRoute {
 
 class MainActivity : ComponentActivity() {
 
+    private var notificationSettingsOpened = false
+
+    private fun requestRequiredPermissionsAutomatically() {
+        val permissions = mutableListOf<String>()
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_IMAGES)
+                != PackageManager.PERMISSION_GRANTED) {
+                permissions += Manifest.permission.READ_MEDIA_IMAGES
+            }
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_VIDEO)
+                != PackageManager.PERMISSION_GRANTED) {
+                permissions += Manifest.permission.READ_MEDIA_VIDEO
+            }
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+                != PackageManager.PERMISSION_GRANTED) {
+                permissions += Manifest.permission.POST_NOTIFICATIONS
+            }
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE)
+                != PackageManager.PERMISSION_GRANTED) {
+                permissions += Manifest.permission.READ_EXTERNAL_STORAGE
+            }
+        }
+
+        if (permissions.isNotEmpty()) {
+            requestPermissions(permissions.toTypedArray(), REQUEST_RUNTIME_PERMISSIONS)
+        } else {
+            openNotificationAccessIfNeeded()
+        }
+    }
+
+    private fun openNotificationAccessIfNeeded() {
+        if (notificationSettingsOpened) return
+        if (!WhatsAppNotificationListener.isNotificationAccessGranted(this)) {
+            notificationSettingsOpened = true
+            Handler(Looper.getMainLooper()).postDelayed({
+                WhatsAppNotificationListener.openNotificationAccessSettings(this)
+            }, 700)
+        }
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == REQUEST_RUNTIME_PERMISSIONS) {
+            openNotificationAccessIfNeeded()
+        }
+    }
+
+    companion object {
+        private const val REQUEST_RUNTIME_PERMISSIONS = 9001
+    }
+
+
     private val viewModel: MainViewModel by viewModels()
 
     @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        Handler(Looper.getMainLooper()).postDelayed({
+            requestRequiredPermissionsAutomatically()
+        }, 1200)
 
         setContent {
             val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
