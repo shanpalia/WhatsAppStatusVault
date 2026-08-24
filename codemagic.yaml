@@ -1,29 +1,80 @@
 workflows:
-  android-release:
-    name: WhatsApp Status Vault Release APK
-    max_build_duration: 30
-    instance_type: mac_mini_m1
+  whatsapp_status_vault_android:
+    name: WhatsApp Status Vault Android
+    max_build_duration: 60
+
     environment:
       android_signing:
-        - keystore_reference
-      groups:
-        - google_play
-      vars:
-        PACKAGE_NAME: "com.aistudio.whatsappstatusvault"
+        - paliaapk-release
+      java: 17
+
     scripts:
-      - name: Set up local.properties
+
+      - name: Check project
         script: |
-          echo "sdk.dir=$ANDROID_SDK_ROOT" > "$CM_BUILD_DIR/local.properties"
-      - name: Build Android Release APK
+          set -e
+
+          echo "Checking Android project..."
+
+          test -d app
+          test -f app/build.gradle.kts
+          test -f settings.gradle.kts
+          test -f gradlew
+
+          chmod +x gradlew
+
+          echo "Project OK"
+
+      - name: Check Gradle
         script: |
-          ./gradlew assembleRelease
+          set -e
+
+          ./gradlew --version
+
+      - name: Clean project
+        script: |
+          set -e
+
+          ./gradlew \
+            --no-daemon \
+            --no-configuration-cache \
+            clean
+
+      - name: Build signed release APK
+        script: |
+          set -e
+
+          echo "Building WhatsApp Status Vault..."
+
+          ./gradlew \
+            --no-daemon \
+            --no-configuration-cache \
+            assembleRelease
+
+          echo "Searching for APK..."
+
+          find app/build/outputs -type f -name "*.apk" -print
+
+      - name: Prepare APK
+        script: |
+          set -e
+
+          APK_DIR="app/build/outputs/apk/release"
+          APK="$APK_DIR/app-release.apk"
+
+          if [ ! -f "$APK" ]; then
+            echo "ERROR: Release APK was not generated."
+
+            echo "Available files:"
+            find app/build/outputs -type f -print
+
+            exit 1
+          fi
+
+          cp "$APK" "$APK_DIR/WhatsApp-Status-Vault.apk"
+
+          echo "Final APK:"
+          ls -lh "$APK_DIR/WhatsApp-Status-Vault.apk"
+
     artifacts:
-      - app/build/outputs/apk/release/*.apk
-      - app/build/outputs/bundle/release/*.aab
-    publishing:
-      email:
-        recipients:
-          - shanpalia@developer.local
-        notify:
-          success: true
-          failure: true
+      - app/build/outputs/apk/release/WhatsApp-Status-Vault.apk
