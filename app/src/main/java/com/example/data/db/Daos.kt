@@ -81,6 +81,9 @@ interface NotificationDao {
     @Query("UPDATE notification_history SET isRemoved = 1, removedTimestamp = :removedTime WHERE notificationKey = :key AND isRemoved = 0")
     suspend fun markRemoved(key: String, removedTime: Long = System.currentTimeMillis())
 
+    @Query("UPDATE notification_history SET isRemoved = 1, removedTimestamp = :removedTime WHERE id = (SELECT id FROM notification_history WHERE packageSource = :packageSource AND sender = :sender AND isRemoved = 0 ORDER BY timestamp DESC LIMIT 1)")
+    suspend fun markLatestFromSenderRemoved(packageSource: String, sender: String, removedTime: Long = System.currentTimeMillis())
+
     @Query("DELETE FROM notification_history WHERE id = :id")
     suspend fun deleteById(id: Long)
 

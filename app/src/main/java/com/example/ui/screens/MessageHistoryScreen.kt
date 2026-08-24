@@ -162,7 +162,7 @@ fun MessageHistoryScreen(
                     )
                     if (notif.isRemoved && notif.removedTimestamp != null) {
                         Text(
-                            text = "Notification Removed (not proof of message deletion): ${SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date(notif.removedTimestamp))}",
+                            text = "Message removed • ${SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date(notif.removedTimestamp))}",
                             fontSize = 11.sp,
                             color = BentoRedText,
                             fontWeight = FontWeight.Medium
@@ -523,7 +523,7 @@ fun NotificationCard(
                             .padding(horizontal = 10.dp, vertical = 4.dp)
                     ) {
                         Text(
-                            text = "Notification Removed",
+                            text = "Message Removed",
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Bold,
                             color = BentoRedText

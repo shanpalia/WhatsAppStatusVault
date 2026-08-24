@@ -90,6 +90,7 @@ fun StatusSaverScreen(
 
     var selectedTabIndex by remember { mutableIntStateOf(0) }
     var selectedPackageFilter by remember { mutableStateOf("ALL") } // "ALL", "com.whatsapp", "com.whatsapp.w4b"
+    var sortNewestFirst by remember { mutableStateOf(true) }
     var activeViewerItem by remember { mutableStateOf<StatusMediaItem?>(null) }
 
     if (activeViewerItem != null) {
@@ -186,6 +187,104 @@ fun StatusSaverScreen(
             }
         }
 
+        // Center status summary card
+        val imageCount = statuses.count { !it.isVideo }
+        val videoCount = statuses.count { it.isVideo }
+
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 6.dp),
+            shape = RoundedCornerShape(18.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surface
+            ),
+            border = BorderStroke(1.dp, BentoOutline)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 18.dp, vertical = 14.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = statuses.size.toString(),
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = BentoPrimary
+                    )
+                    Text(
+                        text = "TOTAL",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = BentoTextSecondary
+                    )
+                }
+
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = imageCount.toString(),
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = BentoPrimary
+                    )
+                    Text(
+                        text = "IMAGES",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = BentoTextSecondary
+                    )
+                }
+
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = videoCount.toString(),
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = BentoPrimary
+                    )
+                    Text(
+                        text = "VIDEOS",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = BentoTextSecondary
+                    )
+                }
+            }
+        }
+
+        // Quick sort controls
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            listOf(
+                true to "Newest first",
+                false to "Oldest first"
+            ).forEach { (newest, label) ->
+                Surface(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(10.dp))
+                        .clickable { sortNewestFirst = newest },
+                    shape = RoundedCornerShape(10.dp),
+                    color = if (sortNewestFirst == newest) BentoPrimary else MaterialTheme.colorScheme.surface,
+                    border = BorderStroke(1.dp, if (sortNewestFirst == newest) BentoPrimary else BentoOutline)
+                ) {
+                    Text(
+                        text = label,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (sortNewestFirst == newest) Color.White else BentoTextSecondary,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                    )
+                }
+            }
+        }
+
         if (!storageGranted) {
             Card(
                 modifier = Modifier
@@ -238,6 +337,11 @@ fun StatusSaverScreen(
                 selected = selectedTabIndex == 2,
                 onClick = { selectedTabIndex = 2 },
                 text = { Text("Videos (${statuses.count { it.isVideo }})", fontWeight = if (selectedTabIndex == 2) FontWeight.Bold else FontWeight.Medium) }
+            )
+            Tab(
+                selected = selectedTabIndex == 3,
+                onClick = { selectedTabIndex = 3 },
+                text = { Text("Saved (${statuses.count { it.isSaved }})", fontWeight = if (selectedTabIndex == 3) FontWeight.Bold else FontWeight.Medium) }
             )
         }
 
@@ -333,6 +437,7 @@ fun StatusSaverScreen(
             val matchesTab = when (selectedTabIndex) {
                 1 -> !item.isVideo
                 2 -> item.isVideo
+                3 -> item.isSaved
                 else -> true
             }
             val matchesPkg = when (selectedPackageFilter) {
@@ -343,7 +448,13 @@ fun StatusSaverScreen(
             matchesTab && matchesPkg
         }
 
-        if (filteredList.isEmpty()) {
+        val sortedList = if (sortNewestFirst) {
+            filteredList.sortedByDescending { it.dateModified }
+        } else {
+            filteredList.sortedBy { it.dateModified }
+        }
+
+        if (sortedList.isEmpty()) {
             // Real Empty State Bento Card
             Box(
                 modifier = Modifier
@@ -420,7 +531,7 @@ fun StatusSaverScreen(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                items(filteredList, key = { it.id }) { item ->
+                items(sortedList, key = { it.id }) { item ->
                     StatusMediaGridItem(
                         item = item,
                         onClick = { activeViewerItem = item },

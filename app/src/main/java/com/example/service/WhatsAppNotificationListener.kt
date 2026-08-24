@@ -90,6 +90,40 @@ class WhatsAppNotificationListener : NotificationListenerService() {
             fallbackText
         }
 
+        // WhatsApp can post a deletion/retraction notification after a message
+        // was captured. In that case, mark the most recently captured message
+        // from the same conversation as removed. We never invent the deleted
+        // message text; only previously captured text is shown.
+        val deletionText = messageText.trim()
+        val looksLikeDeletedMessage =
+            deletionText.contains("message was deleted", ignoreCase = true) ||
+            deletionText.contains("this message was deleted", ignoreCase = true) ||
+            deletionText.contains("deleted this message", ignoreCase = true) ||
+            deletionText.contains("message deleted", ignoreCase = true) ||
+            deletionText.contains("msg deleted", ignoreCase = true)
+
+        val senderForDeletion = (
+            conversationTitle?.toString()?.trim()
+                ?: titleCharSequence?.toString()?.trim()
+                ?: ""
+            )
+
+        if (looksLikeDeletedMessage && senderForDeletion.isNotBlank()) {
+            serviceScope.launch {
+                try {
+                    val db = AppDatabase.getDatabase(applicationContext)
+                    db.notificationDao().markLatestFromSenderRemoved(
+                        packageSource = packageName,
+                        sender = senderForDeletion
+                    )
+                } catch (_: Exception) {
+                    // Ignore deletion-marker update failures.
+                }
+            }
+            // Do not create a fake notification entry for the deletion marker.
+            return
+        }
+
         // Skip internal/empty or service notifications like "WhatsApp Web is active" or backup notifications.
         if (sender.isBlank() && messageText.isBlank()) return
         if (sender.equals("WhatsApp", ignoreCase = true) && messageText.contains("Web", ignoreCase = true)) return
