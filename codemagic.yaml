@@ -10,32 +10,47 @@ workflows:
 
     scripts:
 
-      - name: Check project
+      - name: Check Android project
         script: |
           set -e
 
-          echo "Checking Android project..."
+          echo "Current directory:"
+          pwd
+
+          echo "Project files:"
+          ls -la
 
           test -d app
           test -f app/build.gradle.kts
           test -f settings.gradle.kts
-          test -f gradlew
 
-          chmod +x gradlew
+          echo "Android project detected."
 
-          echo "Project OK"
-
-      - name: Check Gradle
+      - name: Install Gradle 9.3.1
         script: |
           set -e
 
-          ./gradlew --version
+          mkdir -p "$HOME/gradle"
+
+          curl -L --fail --retry 3 \
+            -o "$HOME/gradle/gradle.zip" \
+            "https://services.gradle.org/distributions/gradle-9.3.1-bin.zip"
+
+          unzip -q -o "$HOME/gradle/gradle.zip" -d "$HOME/gradle"
+
+          export GRADLE_HOME="$HOME/gradle/gradle-9.3.1"
+          export PATH="$GRADLE_HOME/bin:$PATH"
+
+          "$GRADLE_HOME/bin/gradle" --version
 
       - name: Clean project
         script: |
           set -e
 
-          ./gradlew \
+          export GRADLE_HOME="$HOME/gradle/gradle-9.3.1"
+          export PATH="$GRADLE_HOME/bin:$PATH"
+
+          "$GRADLE_HOME/bin/gradle" \
             --no-daemon \
             --no-configuration-cache \
             clean
@@ -44,9 +59,12 @@ workflows:
         script: |
           set -e
 
+          export GRADLE_HOME="$HOME/gradle/gradle-9.3.1"
+          export PATH="$GRADLE_HOME/bin:$PATH"
+
           echo "Building WhatsApp Status Vault..."
 
-          ./gradlew \
+          "$GRADLE_HOME/bin/gradle" \
             --no-daemon \
             --no-configuration-cache \
             assembleRelease
@@ -63,9 +81,9 @@ workflows:
           APK="$APK_DIR/app-release.apk"
 
           if [ ! -f "$APK" ]; then
-            echo "ERROR: Release APK was not generated."
+            echo "ERROR: APK was not generated."
 
-            echo "Available files:"
+            echo "Available output:"
             find app/build/outputs -type f -print
 
             exit 1
