@@ -1,29 +1,103 @@
 workflows:
-  android-release:
-    name: WhatsApp Status Vault Release APK
-    max_build_duration: 30
-    instance_type: mac_mini_m1
+  whatsapp_status_vault_android:
+    name: WhatsApp Status Vault Android
+    max_build_duration: 60
+
     environment:
       android_signing:
-        - keystore_reference
-      groups:
-        - google_play
-      vars:
-        PACKAGE_NAME: "com.aistudio.whatsappstatusvault"
+        - paliaapk-release
+      java: 17
+
     scripts:
-      - name: Set up local.properties
+
+      - name: Check Android project
         script: |
-          echo "sdk.dir=$ANDROID_SDK_ROOT" > "$CM_BUILD_DIR/local.properties"
-      - name: Build Android Release APK
+          set -e
+
+          echo "Current directory:"
+          pwd
+
+          echo "Project files:"
+          ls -la
+
+          test -d app
+          test -f app/build.gradle.kts
+          test -f settings.gradle.kts
+
+          echo "Android project detected."
+
+      - name: Install Gradle 9.3.1
         script: |
-          ./gradlew assembleRelease
+          set -e
+
+          mkdir -p "$HOME/gradle"
+
+          curl -L --fail --retry 3 \
+            -o "$HOME/gradle/gradle.zip" \
+            "https://services.gradle.org/distributions/gradle-9.3.1-bin.zip"
+
+          unzip -q -o "$HOME/gradle/gradle.zip" \
+            -d "$HOME/gradle"
+
+          export GRADLE_HOME="$HOME/gradle/gradle-9.3.1"
+          export PATH="$GRADLE_HOME/bin:$PATH"
+
+          "$GRADLE_HOME/bin/gradle" --version
+
+      - name: Clean project
+        script: |
+          set -e
+
+          export GRADLE_HOME="$HOME/gradle/gradle-9.3.1"
+          export PATH="$GRADLE_HOME/bin:$PATH"
+
+          "$GRADLE_HOME/bin/gradle" \
+            --no-daemon \
+            --no-configuration-cache \
+            clean
+
+      - name: Build signed release APK
+        script: |
+          set -e
+
+          export GRADLE_HOME="$HOME/gradle/gradle-9.3.1"
+          export PATH="$GRADLE_HOME/bin:$PATH"
+
+          echo "Building WhatsApp Status Vault..."
+
+          "$GRADLE_HOME/bin/gradle" \
+            --no-daemon \
+            --no-configuration-cache \
+            assembleRelease
+
+          echo "Searching APK..."
+
+          find app/build/outputs \
+            -type f \
+            -name "*.apk" \
+            -print
+
+      - name: Prepare APK
+        script: |
+          set -e
+
+          APK_DIR="app/build/outputs/apk/release"
+          APK="$APK_DIR/app-release.apk"
+
+          if [ ! -f "$APK" ]; then
+            echo "ERROR: APK was not generated."
+
+            find app/build/outputs \
+              -type f \
+              -print
+
+            exit 1
+          fi
+
+          cp "$APK" "$APK_DIR/WhatsApp-Status-Vault.apk"
+
+          echo "Final APK:"
+          ls -lh "$APK_DIR/WhatsApp-Status-Vault.apk"
+
     artifacts:
-      - app/build/outputs/apk/release/*.apk
-      - app/build/outputs/bundle/release/*.aab
-    publishing:
-      email:
-        recipients:
-          - shanpalia@developer.local
-        notify:
-          success: true
-          failure: true
+      - app/build/outputs/apk/release/WhatsApp-Status-Vault.apk
