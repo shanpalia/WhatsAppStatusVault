@@ -1,0 +1,7 @@
+{
+  "name": "WhatsApp Status Vault",
+  "description": "Production-ready native WhatsApp Status Saver, Message Notification History, WhatsApp Direct, and Reports app developed by ShanPalia.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+

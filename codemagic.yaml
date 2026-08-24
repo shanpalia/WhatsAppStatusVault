@@ -1,0 +1,29 @@
+workflows:
+  android-release:
+    name: WhatsApp Status Vault Release APK
+    max_build_duration: 30
+    instance_type: mac_mini_m1
+    environment:
+      android_signing:
+        - keystore_reference
+      groups:
+        - google_play
+      vars:
+        PACKAGE_NAME: "com.aistudio.whatsappstatusvault"
+    scripts:
+      - name: Set up local.properties
+        script: |
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > "$CM_BUILD_DIR/local.properties"
+      - name: Build Android Release APK
+        script: |
+          ./gradlew assembleRelease
+    artifacts:
+      - app/build/outputs/apk/release/*.apk
+      - app/build/outputs/bundle/release/*.aab
+    publishing:
+      email:
+        recipients:
+          - shanpalia@developer.local
+        notify:
+          success: true
+          failure: true
