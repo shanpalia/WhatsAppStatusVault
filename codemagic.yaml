@@ -7,96 +7,52 @@ workflows:
       android_signing:
         - paliaapk-release
       java: 17
+      vars:
+        KEYSTORE_PATH: $CM_KEYSTORE_PATH
+        STORE_PASSWORD: $CM_KEYSTORE_PASSWORD
+        KEY_ALIAS: $CM_KEY_ALIAS
+        KEY_PASSWORD: $CM_KEY_PASSWORD
 
     scripts:
-
       - name: Check Android project
         script: |
           set -e
-
-          echo "Current directory:"
-          pwd
-
-          echo "Project files:"
-          ls -la
-
           test -d app
           test -f app/build.gradle.kts
           test -f settings.gradle.kts
-
           echo "Android project detected."
 
       - name: Install Gradle 9.3.1
         script: |
           set -e
-
           mkdir -p "$HOME/gradle"
-
-          curl -L --fail --retry 3 \
-            -o "$HOME/gradle/gradle.zip" \
-            "https://services.gradle.org/distributions/gradle-9.3.1-bin.zip"
-
-          unzip -q -o "$HOME/gradle/gradle.zip" \
-            -d "$HOME/gradle"
-
+          curl -L --fail --retry 3             -o "$HOME/gradle/gradle.zip"             "https://services.gradle.org/distributions/gradle-9.3.1-bin.zip"
+          unzip -q -o "$HOME/gradle/gradle.zip" -d "$HOME/gradle"
           export GRADLE_HOME="$HOME/gradle/gradle-9.3.1"
           export PATH="$GRADLE_HOME/bin:$PATH"
-
           "$GRADLE_HOME/bin/gradle" --version
 
       - name: Clean project
         script: |
           set -e
-
           export GRADLE_HOME="$HOME/gradle/gradle-9.3.1"
           export PATH="$GRADLE_HOME/bin:$PATH"
-
-          "$GRADLE_HOME/bin/gradle" \
-            --no-daemon \
-            --no-configuration-cache \
-            clean
+          "$GRADLE_HOME/bin/gradle" --no-daemon --no-configuration-cache clean
 
       - name: Build signed release APK
         script: |
           set -e
-
           export GRADLE_HOME="$HOME/gradle/gradle-9.3.1"
           export PATH="$GRADLE_HOME/bin:$PATH"
-
-          echo "Building WhatsApp Status Vault..."
-
-          "$GRADLE_HOME/bin/gradle" \
-            --no-daemon \
-            --no-configuration-cache \
-            assembleRelease
-
-          echo "Searching APK..."
-
-          find app/build/outputs \
-            -type f \
-            -name "*.apk" \
-            -print
+          "$GRADLE_HOME/bin/gradle" --no-daemon --no-configuration-cache assembleRelease
+          find app/build/outputs -type f -name "*.apk" -print
 
       - name: Prepare APK
         script: |
           set -e
-
           APK_DIR="app/build/outputs/apk/release"
-          APK="$APK_DIR/app-release.apk"
-
-          if [ ! -f "$APK" ]; then
-            echo "ERROR: APK was not generated."
-
-            find app/build/outputs \
-              -type f \
-              -print
-
-            exit 1
-          fi
-
-          cp "$APK" "$APK_DIR/WhatsApp-Status-Vault.apk"
-
-          echo "Final APK:"
+          test -f "$APK_DIR/app-release.apk"
+          cp "$APK_DIR/app-release.apk" "$APK_DIR/WhatsApp-Status-Vault.apk"
           ls -lh "$APK_DIR/WhatsApp-Status-Vault.apk"
 
     artifacts:

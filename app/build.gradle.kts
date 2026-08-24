@@ -1,5 +1,3 @@
-import com.google.gms.googleservices.GoogleServicesPlugin.MissingGoogleServicesStrategy
-
 plugins {
   alias(libs.plugins.android.application)
   alias(libs.plugins.kotlin.compose)
@@ -23,21 +21,43 @@ android {
 
   signingConfigs {
     create("release") {
-      val keystorePath = System.getenv("KEYSTORE_PATH") ?: "${rootDir}/my-upload-key.jks"
-      storeFile = file(keystorePath)
-      storePassword = System.getenv("STORE_PASSWORD")
-      keyAlias = "upload"
-      keyPassword = System.getenv("KEY_PASSWORD")
-    }
-    create("debugConfig") {
-      storeFile = file("${rootDir}/debug.keystore")
-      storePassword = "android"
-      keyAlias = "androiddebugkey"
-      keyPassword = "android"
-    }
-  }
+        val keystorePath = System.getenv("CM_KEYSTORE_PATH")
+            ?: System.getenv("KEYSTORE_PATH")
 
-  buildTypes {
+        if (keystorePath.isNullOrBlank()) {
+            throw GradleException(
+                "Codemagic signing keystore is not configured. " +
+                "Select the paliaapk-release Android signing identity."
+            )
+        }
+
+        val keystoreFile = file(keystorePath)
+
+        if (!keystoreFile.exists()) {
+            throw GradleException(
+                "Signing keystore does not exist: $keystorePath"
+            )
+        }
+
+        storeFile = keystoreFile
+        storePassword = System.getenv("CM_KEYSTORE_PASSWORD")
+            ?: System.getenv("STORE_PASSWORD")
+        keyAlias = System.getenv("CM_KEY_ALIAS")
+            ?: System.getenv("KEY_ALIAS")
+            ?: "upload"
+        keyPassword = System.getenv("CM_KEY_PASSWORD")
+            ?: System.getenv("KEY_PASSWORD")
+    }
+
+    create("debugConfig") {
+        storeFile = file("${rootDir}/debug.keystore")
+        storePassword = "android"
+        keyAlias = "androiddebugkey"
+        keyPassword = "android"
+    }
+}
+
+buildTypes {
     release {
       isCrunchPngs = false
       isMinifyEnabled = false
