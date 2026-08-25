@@ -24,8 +24,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Person
@@ -96,7 +94,6 @@ fun MessageHistoryScreen(
     val context = LocalContext.current
 
     var selectedTabIndex by remember { mutableIntStateOf(if (openRemovedOnly) 2 else 0) }
-    var showClearAllDialog by remember { mutableStateOf(false) }
     var selectedNotifDetail by remember { mutableStateOf<NotificationItem?>(null) }
     var selectedChatSender by remember { mutableStateOf<String?>(null) }
 
@@ -108,37 +105,10 @@ fun MessageHistoryScreen(
         viewModel.checkNotificationAccess()
     }
 
-    if (showClearAllDialog) {
-        AlertDialog(
-            onDismissRequest = { showClearAllDialog = false },
-            title = { Text("Clear All Notification History", fontWeight = FontWeight.Bold) },
-            text = { Text("Are you sure you want to permanently clear all captured notification logs?") },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        viewModel.clearAllNotifications()
-                        showClearAllDialog = false
-                        Toast.makeText(context, "All history cleared", Toast.LENGTH_SHORT).show()
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F))
-                ) {
-                    Text("Clear All", color = Color.White)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showClearAllDialog = false }) {
-                    Text("Cancel")
-                }
-            }
-        )
-    }
-
-    // Detail Dialog
     if (selectedChatSender != null) {
         val sender = selectedChatSender!!
-        val chatItems = (allNotifications + removedNotifications)
+        val chatItems = allNotifications
             .filter { it.sender.trim().equals(sender.trim(), ignoreCase = true) }
-            .distinctBy { it.id }
             .sortedBy { it.timestamp }
 
         BackHandler {
@@ -360,23 +330,7 @@ fun MessageHistoryScreen(
                 )
             }
 
-            if (allNotifications.isNotEmpty()) {
-                IconButton(
-                    onClick = { showClearAllDialog = true },
-                    modifier = Modifier
-                        .size(38.dp)
-                        .clip(CircleShape)
-                        .background(BentoRedContainer)
-                        .testTag("clear_all_notifications_btn")
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.DeleteSweep,
-                        contentDescription = "Clear All",
-                        tint = BentoRedText,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-            }
+
         }
 
         // Notification Access Warning (if disabled)
@@ -566,13 +520,9 @@ fun MessageHistoryScreen(
                     NotificationCard(
                         item = notif,
                         onClick = {
-                            if (selectedTabIndex == 2) {
-                                selectedChatSender = notif.sender.trim().ifBlank { "Unknown sender" }
-                            } else {
-                                selectedNotifDetail = notif
-                            }
+                            selectedChatSender = notif.sender.trim().ifBlank { "Unknown sender" }
                         },
-                        onDelete = { viewModel.deleteNotification(notif.id) }
+                        onDelete = { /* Individual deletion disabled; history is preserved. */ }
                     )
                 }
             }
@@ -679,7 +629,7 @@ fun NotificationCard(
                             .padding(horizontal = 10.dp, vertical = 4.dp)
                     ) {
                         Text(
-                            text = "Message Removed",
+                            text = "Deleted by Sender",
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Bold,
                             color = BentoRedText
@@ -701,17 +651,7 @@ fun NotificationCard(
                     }
                 }
 
-                IconButton(
-                    onClick = onDelete,
-                    modifier = Modifier.size(28.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Delete,
-                        contentDescription = "Delete",
-                        tint = BentoTextSecondary,
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
+                // Captured history is permanent; there is no per-message delete action.
             }
         }
     }

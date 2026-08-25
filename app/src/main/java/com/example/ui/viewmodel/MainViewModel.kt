@@ -219,15 +219,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun deleteNotification(id: Long) {
-        viewModelScope.launch {
-            notificationRepo.deleteNotification(id)
-        }
+        // History is permanent; individual captured messages are never deleted.
     }
 
     fun clearAllNotifications() {
-        viewModelScope.launch {
-            notificationRepo.clearAllNotifications()
-        }
+        // History is permanent; captured messages are never cleared.
     }
 
     // --- WhatsApp Direct ---
