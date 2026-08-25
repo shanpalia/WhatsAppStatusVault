@@ -268,6 +268,85 @@ class ReportGenerator(private val context: Context) {
 
             pdfDocument.finishPage(page)
 
+            // --- DETAILED MESSAGE PAGES ---
+            // Export every selected notification, not only a short snippet.
+            // Deleted messages are clearly marked and retain sender, timestamps,
+            // deletion time (when known), and the complete captured text.
+            val detailedNotifications = notifications.sortedBy { it.timestamp }
+            if (detailedNotifications.isNotEmpty()) {
+                var detailIndex = 0
+                while (detailIndex < detailedNotifications.size) {
+                    pageNumber += 1
+                    pageInfo = PdfDocument.PageInfo.Builder(pageWidth, pageHeight, pageNumber).create()
+                    page = pdfDocument.startPage(pageInfo)
+                    canvas = page.canvas
+
+                    paint.color = Color.parseColor("#008069")
+                    canvas.drawRect(0f, 0f, pageWidth.toFloat(), 64f, paint)
+                    paint.color = Color.WHITE
+                    paint.textSize = 16f
+                    paint.isFakeBoldText = true
+                    canvas.drawText("Detailed Message History", 36f, 40f, paint)
+
+                    var detailY = 88f
+                    val pageItems = detailedNotifications.drop(detailIndex).take(6)
+                    for (notif in pageItems) {
+                        // Keep each message block together as much as possible.
+                        val blockTop = detailY
+                        paint.color = if (notif.isRemoved) Color.parseColor("#FFF0F0") else Color.parseColor("#F1FAF7")
+                        canvas.drawRoundRect(
+                            RectF(36f, blockTop, (pageWidth - 36).toFloat(), blockTop + 105f),
+                            10f, 10f, paint
+                        )
+
+                        paint.color = if (notif.isRemoved) Color.parseColor("#B71C1C") else Color.parseColor("#008069")
+                        paint.textSize = 11f
+                        paint.isFakeBoldText = true
+                        canvas.drawText(
+                            if (notif.isRemoved) "DELETED MESSAGE" else "MESSAGE",
+                            48f, blockTop + 18f, paint
+                        )
+
+                        paint.color = Color.parseColor("#111B21")
+                        paint.textSize = 10f
+                        canvas.drawText("Sender: ${truncateForPdf(notif.sender, 55)}", 48f, blockTop + 35f, paint)
+                        canvas.drawText(
+                            "Captured: ${dateFormat.format(Date(notif.timestamp))}",
+                            48f, blockTop + 50f, paint
+                        )
+                        if (notif.isRemoved && notif.removedTimestamp != null) {
+                            paint.color = Color.parseColor("#B71C1C")
+                            canvas.drawText(
+                                "Deleted/removed: ${dateFormat.format(Date(notif.removedTimestamp))}",
+                                48f, blockTop + 65f, paint
+                            )
+                        }
+
+                        paint.color = Color.parseColor("#111B21")
+                        paint.isFakeBoldText = false
+                        paint.textSize = 10f
+                        val messageLines = wrapPdfText(notif.messageText.ifBlank { "(No text captured)" }, 72)
+                        var msgY = blockTop + 82f
+                        for (line in messageLines.take(2)) {
+                            canvas.drawText(line, 48f, msgY, paint)
+                            msgY += 13f
+                        }
+
+                        detailY = blockTop + 115f
+                        if (detailY > pageHeight - 50) break
+                    }
+
+                    paint.color = Color.parseColor("#888888")
+                    paint.textSize = 9f
+                    canvas.drawText(
+                        "Page $pageNumber  •  WhatsApp Status Vault  •  Full selected message details",
+                        36f, (pageHeight - 20).toFloat(), paint
+                    )
+                    pdfDocument.finishPage(page)
+                    detailIndex += pageItems.size
+                }
+            }
+
             // Save PDF to file
             val reportsDir = File(context.getExternalFilesDir(null), "reports")
             if (!reportsDir.exists()) reportsDir.mkdirs()
@@ -311,6 +390,29 @@ class ReportGenerator(private val context: Context) {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
         context.startActivity(chooser)
+    }
+
+    private fun truncateForPdf(value: String, max: Int): String {
+        return if (value.length > max) value.take(max - 3) + "..." else value
+    }
+
+    private fun wrapPdfText(value: String, maxChars: Int): List<String> {
+        val result = mutableListOf<String>()
+        value.replace("\\r", "").split("\\n").forEach { paragraph ->
+            var remaining = paragraph.trim()
+            if (remaining.isEmpty()) {
+                result += ""
+            } else {
+                while (remaining.length > maxChars) {
+                    var cut = remaining.lastIndexOf(' ', maxChars)
+                    if (cut < maxChars / 2) cut = maxChars
+                    result += remaining.take(cut).trim()
+                    remaining = remaining.drop(cut).trim()
+                }
+                result += remaining
+            }
+        }
+        return result
     }
 
     private fun formatFileSize(bytes: Long): String {

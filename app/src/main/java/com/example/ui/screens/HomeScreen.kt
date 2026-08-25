@@ -316,6 +316,38 @@ fun HomeScreen(
                                 color = Color.White
                             )
                         }
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            listOf(
+                                "Total" to stats.availableStatuses,
+                                "Images" to stats.availableImages,
+                                "Videos" to stats.availableVideos
+                            ).forEach { (label, count) ->
+                                Surface(
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = Color.White.copy(alpha = 0.14f)
+                                ) {
+                                    Column(
+                                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        Text(
+                                            text = count.toString(),
+                                            fontSize = 15.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color.White
+                                        )
+                                        Text(
+                                            text = label,
+                                            fontSize = 9.sp,
+                                            color = Color.White.copy(alpha = 0.9f)
+                                        )
+                                    }
+                                }
+                            }
+                        }
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
                             text = "Save images & videos locally from WhatsApp and WhatsApp Business without compression.",
@@ -352,17 +384,53 @@ fun HomeScreen(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                BentoActionCard(
-                    title = "Removed Messages",
-                    subtitle = if (stats.removedNotifications > 0) "${stats.removedNotifications} detected" else "Notification history",
-                    icon = Icons.Default.History,
-                    iconContainerBg = BentoRedContainer,
-                    iconTint = BentoRedText,
-                    tag = "nav_message_history",
+                Card(
                     modifier = Modifier
                         .weight(1f)
                         .clickable { onNavigateToMessages() }
-                )
+                        .testTag("nav_message_history"),
+                    shape = RoundedCornerShape(22.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = BorderStroke(1.dp, BentoOutline),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Surface(
+                            modifier = Modifier.size(48.dp),
+                            shape = RoundedCornerShape(16.dp),
+                            color = BentoRedContainer
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Default.History,
+                                    contentDescription = "Deleted Messages",
+                                    tint = BentoRedText,
+                                    modifier = Modifier.size(25.dp)
+                                )
+                            }
+                        }
+                        Text(
+                            text = "Deleted Messages",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "${stats.removedNotifications} detected",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = BentoRedText
+                        )
+                        Text(
+                            text = "Tap to view full chats",
+                            fontSize = 12.sp,
+                            color = BentoTextSecondary
+                        )
+                    }
+                }
 
                 BentoActionCard(
                     title = "WhatsApp Direct",

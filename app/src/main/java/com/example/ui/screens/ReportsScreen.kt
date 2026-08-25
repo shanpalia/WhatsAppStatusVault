@@ -30,6 +30,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -37,7 +39,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -53,6 +59,7 @@ import com.example.ui.theme.BentoMintContainer
 import com.example.ui.theme.BentoMintText
 import com.example.ui.theme.BentoOutline
 import com.example.ui.theme.BentoPrimary
+import com.example.ui.theme.BentoRedText
 import com.example.ui.theme.BentoTextSecondary
 import com.example.ui.viewmodel.MainViewModel
 import java.io.File
@@ -65,7 +72,17 @@ fun ReportsScreen(
     viewModel: MainViewModel
 ) {
     val stats by viewModel.dashboardStats.collectAsStateWithLifecycle()
+    val notifications by viewModel.allNotifications.collectAsStateWithLifecycle()
     val isGenerating by viewModel.isGeneratingReport.collectAsStateWithLifecycle()
+    var selectedNotificationIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
+    var selectionInitialized by remember { mutableStateOf(false) }
+
+    LaunchedEffect(notifications) {
+        if (!selectionInitialized && notifications.isNotEmpty()) {
+            selectedNotificationIds = notifications.map { it.id }.toSet()
+            selectionInitialized = true
+        }
+    }
     val generatedReportFile by viewModel.generatedReportFile.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
@@ -125,6 +142,8 @@ fun ReportsScreen(
                 HorizontalDivider(color = BentoOutline)
 
                 ReportRowItem(label = "Available Statuses", value = "${stats.availableStatuses} items")
+                ReportRowItem(label = "Available Images", value = "${stats.availableImages} items")
+                ReportRowItem(label = "Available Videos", value = "${stats.availableVideos} items")
                 ReportRowItem(label = "Saved Images in Vault", value = "${stats.savedImages} files")
                 ReportRowItem(label = "Saved Videos in Vault", value = "${stats.savedVideos} files")
                 ReportRowItem(label = "Notification Message Logs", value = "${stats.capturedNotifications} records")
@@ -132,10 +151,102 @@ fun ReportsScreen(
             }
         }
 
+        // Chat selection for PDF export
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(22.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            border = BorderStroke(1.dp, BentoOutline),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "Select Chats for PDF",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "${selectedNotificationIds.size} messages selected",
+                            fontSize = 12.sp,
+                            color = BentoTextSecondary
+                        )
+                    }
+                    TextButton(
+                        onClick = {
+                            val allIds = notifications.map { it.id }.toSet()
+                            selectedNotificationIds =
+                                if (selectedNotificationIds.size == allIds.size) emptySet()
+                                else allIds
+                        }
+                    ) {
+                        Text(
+                            text = if (selectedNotificationIds.size == notifications.size) "Clear All" else "Select All",
+                            color = BentoPrimary,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+
+                HorizontalDivider(color = BentoOutline)
+
+                if (notifications.isEmpty()) {
+                    Text(
+                        text = "No captured chats yet.",
+                        modifier = Modifier.padding(vertical = 14.dp),
+                        color = BentoTextSecondary
+                    )
+                } else {
+                    val groupedChats = notifications
+                        .groupBy { it.sender.ifBlank { "Unknown sender" } }
+                        .toList()
+                        .sortedBy { it.first.lowercase(Locale.getDefault()) }
+
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        groupedChats.forEach { (sender, chatItems) ->
+                            val ids = chatItems.map { it.id }.toSet()
+                            val checked = ids.all { it in selectedNotificationIds }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Checkbox(
+                                    checked = checked,
+                                    onCheckedChange = { value ->
+                                        selectedNotificationIds =
+                                            if (value) selectedNotificationIds + ids
+                                            else selectedNotificationIds - ids
+                                    }
+                                )
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = sender,
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                    Text(
+                                        text = "${chatItems.size} messages • ${chatItems.count { it.isRemoved }} deleted",
+                                        fontSize = 11.sp,
+                                        color = if (chatItems.any { it.isRemoved }) BentoRedText else BentoTextSecondary
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         // Generate PDF Button
         Button(
             onClick = {
-                viewModel.generatePdfReport { file ->
+                viewModel.generatePdfReport(selectedNotificationIds) { file ->
                     if (file != null) {
                         Toast.makeText(context, "PDF Report generated successfully!", Toast.LENGTH_SHORT).show()
                     } else {

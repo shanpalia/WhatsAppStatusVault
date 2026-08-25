@@ -84,7 +84,9 @@ import java.util.Locale
 
 @Composable
 fun MessageHistoryScreen(
-    viewModel: MainViewModel
+    viewModel: MainViewModel,
+    openRemovedOnly: Boolean = false,
+    onConsumedRemovedRoute: () -> Unit = {}
 ) {
     val allNotifications by viewModel.allNotifications.collectAsStateWithLifecycle()
     val removedNotifications by viewModel.removedNotifications.collectAsStateWithLifecycle()
@@ -92,11 +94,16 @@ fun MessageHistoryScreen(
     val searchQuery by viewModel.searchNotificationQuery.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
-    var selectedTabIndex by remember { mutableIntStateOf(0) }
+    var selectedTabIndex by remember { mutableIntStateOf(if (openRemovedOnly) 2 else 0) }
     var showClearAllDialog by remember { mutableStateOf(false) }
     var selectedNotifDetail by remember { mutableStateOf<NotificationItem?>(null) }
+    var selectedChatSender by remember { mutableStateOf<String?>(null) }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(openRemovedOnly) {
+        if (openRemovedOnly) {
+            selectedTabIndex = 2
+            onConsumedRemovedRoute()
+        }
         viewModel.checkNotificationAccess()
     }
 
@@ -126,6 +133,73 @@ fun MessageHistoryScreen(
     }
 
     // Detail Dialog
+    if (selectedChatSender != null) {
+        val sender = selectedChatSender!!
+        val chatItems = allNotifications
+            .filter { it.sender.equals(sender, ignoreCase = true) }
+            .sortedBy { it.timestamp }
+
+        AlertDialog(
+            onDismissRequest = { selectedChatSender = null },
+            title = {
+                Column {
+                    Text(sender, fontWeight = FontWeight.Bold)
+                    Text(
+                        text = "${chatItems.size} captured messages • ${chatItems.count { it.isRemoved }} deleted",
+                        fontSize = 12.sp,
+                        color = BentoTextSecondary
+                    )
+                }
+            },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(420.dp)
+                ) {
+                    LazyColumn(
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(chatItems, key = { it.id }) { item ->
+                            Card(
+                                colors = CardDefaults.cardColors(
+                                    containerColor = if (item.isRemoved) BentoRedContainer else BentoMintContainer
+                                ),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp)) {
+                                    Text(
+                                        text = if (item.isRemoved) "DELETED MESSAGE" else "MESSAGE",
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (item.isRemoved) BentoRedText else BentoMintText
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = item.messageText.ifBlank { "(No text captured)" },
+                                        fontSize = 14.sp,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Spacer(modifier = Modifier.height(3.dp))
+                                    Text(
+                                        text = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date(item.timestamp)),
+                                        fontSize = 10.sp,
+                                        color = BentoTextSecondary
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { selectedChatSender = null }) {
+                    Text("Close", color = BentoPrimary, fontWeight = FontWeight.Bold)
+                }
+            }
+        )
+    }
+
     if (selectedNotifDetail != null) {
         val notif = selectedNotifDetail!!
         AlertDialog(
@@ -415,7 +489,13 @@ fun MessageHistoryScreen(
                 items(displayedList, key = { it.id }) { notif ->
                     NotificationCard(
                         item = notif,
-                        onClick = { selectedNotifDetail = notif },
+                        onClick = {
+                            if (selectedTabIndex == 2) {
+                                selectedChatSender = notif.sender
+                            } else {
+                                selectedNotifDetail = notif
+                            }
+                        },
                         onDelete = { viewModel.deleteNotification(notif.id) }
                     )
                 }

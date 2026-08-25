@@ -54,6 +54,8 @@ enum class ThemeMode {
 
 data class DashboardStats(
     val availableStatuses: Int = 0,
+    val availableImages: Int = 0,
+    val availableVideos: Int = 0,
     val savedImages: Int = 0,
     val savedVideos: Int = 0,
     val capturedNotifications: Int = 0,

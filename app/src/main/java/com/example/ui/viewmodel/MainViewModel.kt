@@ -83,6 +83,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     ) { statuses, imgCount, vidCount, notifCount, removedCount ->
         DashboardStats(
             availableStatuses = statuses.size,
+            availableImages = statuses.count { !it.isVideo },
+            availableVideos = statuses.count { it.isVideo },
             savedImages = imgCount,
             savedVideos = vidCount,
             capturedNotifications = notifCount,
@@ -272,13 +274,21 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     // --- Reports ---
-    fun generatePdfReport(onComplete: (File?) -> Unit) {
+    fun generatePdfReport(
+        selectedNotificationIds: Set<Long> = emptySet(),
+        onComplete: (File?) -> Unit
+    ) {
         viewModelScope.launch {
             _isGeneratingReport.value = true
             val currentStats = dashboardStats.value
             val statuses = _scannedStatuses.value
             val saved = savedMediaRepo.getAllSavedList()
-            val notifs = notificationRepo.getAllNotificationsList()
+            val allNotifs = notificationRepo.getAllNotificationsList()
+            val notifs = if (selectedNotificationIds.isEmpty()) {
+                allNotifs
+            } else {
+                allNotifs.filter { it.id in selectedNotificationIds }
+            }
 
             val result = reportGen.generatePdfReport(currentStats, statuses, saved, notifs)
             _isGeneratingReport.value = false

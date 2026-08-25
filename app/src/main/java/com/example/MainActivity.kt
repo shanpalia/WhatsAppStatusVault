@@ -188,6 +188,7 @@ class MainActivity : ComponentActivity() {
             val isAppUnlocked by viewModel.isAppUnlocked.collectAsStateWithLifecycle()
 
             var currentRoute by remember { mutableStateOf(ScreenRoute.SPLASH) }
+            var openRemovedMessages by remember { mutableStateOf(false) }
 
             StatusVaultTheme(darkTheme = isDarkTheme) {
                 if (currentRoute == ScreenRoute.SPLASH) {
@@ -300,7 +301,7 @@ class MainActivity : ComponentActivity() {
 
                                 NavigationBarItem(
                                     selected = currentRoute == ScreenRoute.MESSAGE_HISTORY,
-                                    onClick = { currentRoute = ScreenRoute.MESSAGE_HISTORY },
+                                    onClick = { openRemovedMessages = false; currentRoute = ScreenRoute.MESSAGE_HISTORY },
                                     icon = { Icon(Icons.Default.History, contentDescription = "Messages") },
                                     label = { Text("Messages", fontSize = 10.sp, fontWeight = if (currentRoute == ScreenRoute.MESSAGE_HISTORY) FontWeight.Bold else FontWeight.Medium) },
                                     colors = NavigationBarItemDefaults.colors(
@@ -354,7 +355,7 @@ class MainActivity : ComponentActivity() {
                                 ScreenRoute.HOME -> HomeScreen(
                                     viewModel = viewModel,
                                     onNavigateToStatus = { currentRoute = ScreenRoute.STATUS_SAVER },
-                                    onNavigateToMessages = { currentRoute = ScreenRoute.MESSAGE_HISTORY },
+                                    onNavigateToMessages = { openRemovedMessages = true; currentRoute = ScreenRoute.MESSAGE_HISTORY },
                                     onNavigateToDirect = { currentRoute = ScreenRoute.WHATSAPP_DIRECT },
                                     onNavigateToSaved = { currentRoute = ScreenRoute.SAVED_MEDIA },
                                     onNavigateToReports = { currentRoute = ScreenRoute.REPORTS },
@@ -364,7 +365,9 @@ class MainActivity : ComponentActivity() {
                                     viewModel = viewModel
                                 )
                                 ScreenRoute.MESSAGE_HISTORY -> MessageHistoryScreen(
-                                    viewModel = viewModel
+                                    viewModel = viewModel,
+                                    openRemovedOnly = openRemovedMessages,
+                                    onConsumedRemovedRoute = { openRemovedMessages = false }
                                 )
                                 ScreenRoute.WHATSAPP_DIRECT -> WhatsAppDirectScreen(
                                     viewModel = viewModel
