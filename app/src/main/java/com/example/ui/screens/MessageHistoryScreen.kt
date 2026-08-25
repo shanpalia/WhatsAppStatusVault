@@ -1,6 +1,7 @@
 package com.example.ui.screens
 
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -135,54 +136,134 @@ fun MessageHistoryScreen(
     // Detail Dialog
     if (selectedChatSender != null) {
         val sender = selectedChatSender!!
-        val chatItems = allNotifications
-            .filter { it.sender.equals(sender, ignoreCase = true) }
+        val chatItems = (allNotifications + removedNotifications)
+            .filter { it.sender.trim().equals(sender.trim(), ignoreCase = true) }
+            .distinctBy { it.id }
             .sortedBy { it.timestamp }
 
-        AlertDialog(
-            onDismissRequest = { selectedChatSender = null },
-            title = {
-                Column {
-                    Text(sender, fontWeight = FontWeight.Bold)
+        BackHandler {
+            selectedChatSender = null
+        }
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = { selectedChatSender = null }) {
+                    Icon(
+                        imageVector = Icons.Default.Clear,
+                        contentDescription = "Back",
+                        tint = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "${chatItems.size} captured messages • ${chatItems.count { it.isRemoved }} deleted",
+                        text = sender.ifBlank { "Unknown sender" },
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "${chatItems.size} messages • ${chatItems.count { it.isRemoved }} deleted",
                         fontSize = 12.sp,
                         color = BentoTextSecondary
                     )
                 }
-            },
-            text = {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(420.dp)
+            }
+
+            if (chatItems.isEmpty()) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
                 ) {
-                    LazyColumn(
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        items(chatItems, key = { it.id }) { item ->
-                            Card(
-                                colors = CardDefaults.cardColors(
-                                    containerColor = if (item.isRemoved) BentoRedContainer else BentoMintContainer
-                                ),
-                                shape = RoundedCornerShape(12.dp)
-                            ) {
-                                Column(modifier = Modifier.padding(12.dp)) {
+                    Text(
+                        text = "No captured messages for this chat.",
+                        color = BentoTextSecondary
+                    )
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    items(chatItems, key = { it.id }) { item ->
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(18.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = if (item.isRemoved)
+                                    BentoRedContainer
+                                else
+                                    MaterialTheme.colorScheme.surface
+                            ),
+                            border = BorderStroke(
+                                1.dp,
+                                if (item.isRemoved) BentoRedText.copy(alpha = 0.25f)
+                                else BentoOutline
+                            ),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(14.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
                                     Text(
                                         text = if (item.isRemoved) "DELETED MESSAGE" else "MESSAGE",
-                                        fontSize = 10.sp,
+                                        fontSize = 11.sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = if (item.isRemoved) BentoRedText else BentoMintText
+                                        color = if (item.isRemoved) BentoRedText else BentoPrimary
                                     )
+                                    Text(
+                                        text = SimpleDateFormat(
+                                            "dd MMM yyyy, HH:mm:ss",
+                                            Locale.getDefault()
+                                        ).format(Date(item.timestamp)),
+                                        fontSize = 10.sp,
+                                        color = BentoTextSecondary
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                Text(
+                                    text = item.messageText.ifBlank {
+                                        if (item.isRemoved)
+                                            "(Message text was not included in the notification)"
+                                        else
+                                            "(No text captured)"
+                                    },
+                                    fontSize = 15.sp,
+                                    lineHeight = 21.sp,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+
+                                if (item.isRemoved && item.removedTimestamp != null) {
+                                    Spacer(modifier = Modifier.height(7.dp))
+                                    Text(
+                                        text = "Deleted at: " + SimpleDateFormat(
+                                            "dd MMM yyyy, HH:mm:ss",
+                                            Locale.getDefault()
+                                        ).format(Date(item.removedTimestamp)),
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        color = BentoRedText
+                                    )
+                                }
+
+                                if (item.packageSource.isNotBlank()) {
                                     Spacer(modifier = Modifier.height(4.dp))
                                     Text(
-                                        text = item.messageText.ifBlank { "(No text captured)" },
-                                        fontSize = 14.sp,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                    Spacer(modifier = Modifier.height(3.dp))
-                                    Text(
-                                        text = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date(item.timestamp)),
+                                        text = "App: ${item.packageSource}",
                                         fontSize = 10.sp,
                                         color = BentoTextSecondary
                                     )
@@ -191,13 +272,8 @@ fun MessageHistoryScreen(
                         }
                     }
                 }
-            },
-            confirmButton = {
-                TextButton(onClick = { selectedChatSender = null }) {
-                    Text("Close", color = BentoPrimary, fontWeight = FontWeight.Bold)
-                }
             }
-        )
+        }
     }
 
     if (selectedNotifDetail != null) {
@@ -491,7 +567,7 @@ fun MessageHistoryScreen(
                         item = notif,
                         onClick = {
                             if (selectedTabIndex == 2) {
-                                selectedChatSender = notif.sender
+                                selectedChatSender = notif.sender.trim().ifBlank { "Unknown sender" }
                             } else {
                                 selectedNotifDetail = notif
                             }
